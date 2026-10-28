@@ -65,7 +65,7 @@
             <header class="ag-group__head">
                 <div class="ag-group__id">
                     <span class="ag-group__icon">
-                        <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
                     </span>
                     <div>
                         <h2 class="ag-group__title">{{ $group['title'] }}</h2>
@@ -76,7 +76,9 @@
             </header>
 
             <div class="ag-cols" aria-hidden="true">
-                <span>NO</span><span>NAMA KEGIATAN</span><span>WAKTU</span>
+                <span class="ag-cols__no">NO</span>
+                <span class="ag-cols__name">NAMA KEGIATAN</span>
+                <span class="ag-cols__time">WAKTU</span>
             </div>
 
             <ol class="ag-rows">
