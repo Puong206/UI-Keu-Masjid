@@ -49,9 +49,9 @@
 
                 <div class="laporan-preset-pills">
                     <button type="button" class="filter-pill-opt" data-preset="1w">1 minggu terakhir</button>
-                    <button type="button" class="filter-pill-opt" data-preset="1m">1 bulan terakhir</button>
+                    <button type="button" class="filter-pill-opt filter-pill-opt--active" data-preset="1m">1 bulan terakhir</button>
                     <button type="button" class="filter-pill-opt" data-preset="3m">3 bulan terakhir</button>
-                    <button type="button" class="filter-pill-opt filter-pill-opt--active" id="btnPilihTanggal">
+                    <button type="button" class="filter-pill-opt" id="btnPilihTanggal">
                         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
                             <line x1="16" y1="2" x2="16" y2="6"></line>
@@ -65,7 +65,7 @@
 
             <div class="laporan-filter-row-bottom">
                 <div class="laporan-range-group">
-                    <span class="laporan-range-label">
+                    <span class="laporan-range-label" id="rangeLabel" hidden>
                         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
                             <line x1="16" y1="2" x2="16" y2="6"></line>
@@ -75,23 +75,22 @@
                         Rentang Kustom:
                     </span>
 
-                    <div class="date-picker-box">
-                        <span class="date-picker-box__label">Tanggal Awal</span>
-                        <div class="date-picker-box__value">
-                            <span>1 Apr 2026</span>
-                            <span class="chevron">▾</span>
+                    <div class="custom-range-controls" id="customRangeControls" hidden>
+                        <div class="date-picker-box">
+                            <span class="date-picker-box__label">Tanggal Awal</span>
+                            <div class="date-picker-box__value">
+                                <input type="date" id="startDate" aria-label="Tanggal awal" value="2026-04-01">
+                            </div>
+                        </div>
+                        <div class="date-picker-box date-picker-box--end">
+                            <span class="date-picker-box__label">Tanggal Akhir</span>
+                            <div class="date-picker-box__value">
+                                <input type="date" id="endDate" aria-label="Tanggal akhir" value="2026-04-30">
+                            </div>
                         </div>
                     </div>
 
-                    <div class="date-picker-box">
-                        <span class="date-picker-box__label">Tanggal Akhir</span>
-                        <div class="date-picker-box__value">
-                            <span>30 Apr 2026</span>
-                            <span class="chevron">▾</span>
-                        </div>
-                    </div>
-
-                    <button type="button" class="btn-laporan-terapkan">Terapkan</button>
+                    <button type="button" class="btn-laporan-terapkan" id="btnApplyCustomRange" hidden>Terapkan</button>
                 </div>
 
                 <div class="laporan-month-selector">
@@ -274,6 +273,9 @@
         return number.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
     }
 
+    let activeDateRange = { start: '2026-04-01', end: '2026-04-30' };
+    const transactionFilterRefreshers = [];
+
     // Initialize Sort & Category Filter for a Transaction Box
     function initTrxFilterAndSort(boxId) {
         const box = document.getElementById(boxId);
@@ -288,6 +290,7 @@
 
         let rows = Array.from(body.querySelectorAll('.trx-row'));
         let currentSort = { field: null, direction: null };
+        let currentCategory = 'all';
 
         // Recalculate count and subtotal
         function updateSummary() {
@@ -296,6 +299,20 @@
             if (countEl) countEl.textContent = `${visibleRows.length} transaksi`;
             if (totalEl) totalEl.textContent = `Rp ${formatRupiah(total)}`;
         }
+
+        function applyVisibility() {
+            rows.forEach(row => {
+                const inDateRange = !activeDateRange
+                    || (row.getAttribute('data-date') >= activeDateRange.start
+                        && row.getAttribute('data-date') <= activeDateRange.end);
+                const inCategory = currentCategory === 'all'
+                    || row.getAttribute('data-category') === currentCategory;
+                row.style.display = inDateRange && inCategory ? 'flex' : 'none';
+            });
+            updateSummary();
+        }
+
+        transactionFilterRefreshers.push(applyVisibility);
 
         // Apply sort
         function applySort(field, direction) {
@@ -377,14 +394,11 @@
                     const labelSpan = categoryBtn.querySelector('span');
 
                     if (selectedCat === 'all') {
-                        rows.forEach(r => r.style.display = 'flex');
+                        currentCategory = 'all';
                         categoryBtn.classList.remove('active');
                         if (labelSpan) labelSpan.textContent = 'Kategori';
                     } else {
-                        rows.forEach(r => {
-                            const rowCat = r.getAttribute('data-category');
-                            r.style.display = (rowCat === selectedCat) ? 'flex' : 'none';
-                        });
+                        currentCategory = selectedCat;
                         categoryBtn.classList.add('active');
                         if (labelSpan) {
                             labelSpan.textContent = selectedCat.length > 13 ? selectedCat.substring(0, 12) + '...' : selectedCat;
@@ -392,10 +406,12 @@
                     }
 
                     categoryMenu.classList.remove('show');
-                    updateSummary();
+                    applyVisibility();
                 });
             });
         }
+
+        applyVisibility();
     }
 
     // Initialize both columns
@@ -408,12 +424,80 @@
             document.querySelectorAll('.trx-dropdown-menu').forEach(m => m.classList.remove('show'));
         });
 
-        // Preset filter pill interactivity
-        document.querySelectorAll('.filter-pill-opt').forEach(pill => {
+        const presetPills = document.querySelectorAll('.filter-pill-opt[data-preset]');
+        const customPill = document.getElementById('btnPilihTanggal');
+        const customControls = document.getElementById('customRangeControls');
+        const applyCustomRange = document.getElementById('btnApplyCustomRange');
+        const rangeLabel = document.getElementById('rangeLabel');
+        const startDate = document.getElementById('startDate');
+        const endDate = document.getElementById('endDate');
+        const sectionTitle = document.querySelector('.laporan-heading-group .laporan-section-title');
+        const resumeTitle = document.querySelector('.laporan-resume-heading .laporan-section-title');
+        const monthNames = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+            'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+
+        function formatDateLabel(value) {
+            const date = new Date(`${value}T00:00:00`);
+            return `${date.getDate()} ${monthNames[date.getMonth()]} ${date.getFullYear()}`;
+        }
+
+        function updateReport(range, label) {
+            if (range.start > range.end) {
+                window.alert('Tanggal awal tidak boleh melebihi tanggal akhir.');
+                return false;
+            }
+            activeDateRange = range;
+            transactionFilterRefreshers.forEach(refresh => refresh());
+            if (sectionTitle) sectionTitle.textContent = `Detail ${label}`;
+            if (resumeTitle) resumeTitle.textContent = `Resume Saldo ${label}`;
+            return true;
+        }
+
+        function activatePill(pill) {
+            document.querySelectorAll('.filter-pill-opt').forEach(item => item.classList.remove('filter-pill-opt--active'));
+            pill.classList.add('filter-pill-opt--active');
+        }
+
+        function setCustomRangeVisibility(isVisible) {
+            customControls.hidden = !isVisible;
+            applyCustomRange.hidden = !isVisible;
+            rangeLabel.hidden = !isVisible;
+        }
+
+        presetPills.forEach(pill => {
             pill.addEventListener('click', function() {
-                document.querySelectorAll('.filter-pill-opt').forEach(p => p.classList.remove('filter-pill-opt--active'));
-                this.classList.add('filter-pill-opt--active');
+                const latest = new Date('2026-04-30T00:00:00');
+                const preset = this.dataset.preset;
+                const start = new Date(latest);
+                let label;
+                if (preset === '1w') {
+                    start.setDate(start.getDate() - 6);
+                    label = `${formatDateLabel(start.toISOString().slice(0, 10))} – ${formatDateLabel('2026-04-30')}`;
+                } else if (preset === '1m') {
+                    start.setDate(1);
+                    label = 'April 2026';
+                } else {
+                    start.setMonth(start.getMonth() - 2, 1);
+                    label = 'Februari – April 2026';
+                }
+                const startValue = start.toISOString().slice(0, 10);
+                if (updateReport({ start: startValue, end: '2026-04-30' }, label)) {
+                    activatePill(this);
+                    setCustomRangeVisibility(false);
+                }
             });
+        });
+
+        customPill.addEventListener('click', function() {
+            activatePill(this);
+            setCustomRangeVisibility(true);
+        });
+
+        applyCustomRange.addEventListener('click', function() {
+            const label = `${formatDateLabel(startDate.value)} – ${formatDateLabel(endDate.value)}`;
+            if (updateReport({ start: startDate.value, end: endDate.value }, label)) {
+                activatePill(customPill);
+            }
         });
     });
 </script>
