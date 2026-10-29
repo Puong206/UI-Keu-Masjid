@@ -3,19 +3,19 @@
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
-    return view('pages.home');
+    return view('pages.users.home');
 })->name('home');
 
 Route::get('/agenda', function () {
-    return view('pages.agenda');
+    return view('pages.users.agenda');
 })->name('agenda');
 
 Route::get('/profil', function () {
-    return view('pages.profil');
+    return view('pages.users.profil');
 })->name('profil');
 
 Route::get('/kontak', function () {
-    return view('pages.kontak');
+    return view('pages.users.kontak');
 })->name('kontak');
 
 // ==================== LAPORAN KEUANGAN PUBLIK ====================
@@ -30,4 +30,3 @@ Route::get('/laporan/unduh', function () {
 Route::get('/laporan/pratinjau', function () {
     return view('pages.laporan.export-preview');
 })->name('laporan.export.preview');
-
