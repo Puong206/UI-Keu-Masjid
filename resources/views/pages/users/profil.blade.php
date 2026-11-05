@@ -114,7 +114,7 @@
     {{-- ==================== 5. STRUKTUR ORGANISASI TAKMIR ==================== --}}
     <section class="pf-struktur">
         <p class="pf-struktur__eyebrow">STRUKTUR ORGANISASI</p>
-        <h2 class="pf-struktur__title">Pengurus Takmir 2023–2025</h2>
+        <h2 class="pf-struktur__title">Pengurus Takmir 2023–2026</h2>
 
         <div class="pf-takmir">
             <div class="pf-takmir__row">

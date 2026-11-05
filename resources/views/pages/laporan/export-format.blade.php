@@ -5,6 +5,43 @@
 @section('content')
 @php
     $data = require resource_path('views/pages/laporan/data.php');
+    $start = request('start', '2026-04-01');
+    $end = request('end', '2026-04-30');
+    $label = request('label', $data['period']);
+    $parseDate = static function (string $date): string {
+        $months = ['januari'=>'01','februari'=>'02','maret'=>'03','april'=>'04','mei'=>'05','juni'=>'06','juli'=>'07','agustus'=>'08','september'=>'09','oktober'=>'10','november'=>'11','desember'=>'12'];
+        $parts = explode(' ', strtolower($date));
+        return ($parts[2] ?? '2026') . '-' . ($months[$parts[1] ?? 'april'] ?? '04') . '-' . str_pad($parts[0] ?? '1', 2, '0', STR_PAD_LEFT);
+    };
+    $filterTransactions = static function (array $transactions) use ($start, $end, $parseDate): array {
+        return array_values(array_filter($transactions, static fn (array $transaction): bool => $parseDate($transaction['date']) >= $start && $parseDate($transaction['date']) <= $end));
+    };
+    $data['pemasukan'] = $filterTransactions($data['pemasukan']);
+    $data['pengeluaran'] = $filterTransactions($data['pengeluaran']);
+    $data['count_pemasukan'] = count($data['pemasukan']);
+    $data['count_pengeluaran'] = count($data['pengeluaran']);
+    $data['total_pemasukan'] = number_format(array_sum(array_map(static fn (array $row): int => (int) str_replace('.', '', $row['amount']), $data['pemasukan'])), 0, ',', '.');
+    $data['total_pengeluaran'] = number_format(array_sum(array_map(static fn (array $row): int => (int) str_replace('.', '', $row['amount']), $data['pengeluaran'])), 0, ',', '.');
+    $incoming = array_fill_keys(array_column($data['resume'], 'category'), 0);
+    $outgoing = $incoming;
+    foreach ($data['pemasukan'] as $row) {
+        $incoming[$row['category']] = ($incoming[$row['category']] ?? 0) + (int) str_replace('.', '', $row['amount']);
+    }
+    foreach ($data['pengeluaran'] as $row) {
+        $outgoing[$row['category']] = ($outgoing[$row['category']] ?? 0) + (int) str_replace('.', '', $row['amount']);
+    }
+    foreach ($data['resume'] as &$row) {
+        $row['pemasukan'] = number_format($incoming[$row['category']] ?? 0, 0, ',', '.');
+        $row['pengeluaran'] = number_format($outgoing[$row['category']] ?? 0, 0, ',', '.');
+        $opening = (int) str_replace('.', '', $row['saldo_awal']);
+        $row['saldo_akhir'] = number_format($opening + ($incoming[$row['category']] ?? 0) - ($outgoing[$row['category']] ?? 0), 0, ',', '.');
+    }
+    unset($row);
+    $data['resume_total']['pemasukan'] = $data['total_pemasukan'];
+    $data['resume_total']['pengeluaran'] = $data['total_pengeluaran'];
+    $totalOpening = (int) str_replace('.', '', $data['resume_total']['saldo_awal']);
+    $data['resume_total']['saldo_akhir'] = number_format($totalOpening + (int) str_replace('.', '', $data['total_pemasukan']) - (int) str_replace('.', '', $data['total_pengeluaran']), 0, ',', '.');
+    $query = http_build_query(['start' => $start, 'end' => $end, 'label' => $label]);
 @endphp
 
 <div class="laporan-page-wrapper">
@@ -22,7 +59,7 @@
         <section class="laporan-stepper-header">
             <div class="laporan-stepper-header__left">
                 <h2 class="laporan-step-title">Unduh laporan keuangan</h2>
-                <p class="laporan-step-desc">Pilih format untuk menyimpan laporan {{ $data['period'] }}.</p>
+                <p class="laporan-step-desc">Pilih format untuk menyimpan laporan {{ $label }}.</p>
             </div>
 
             <div class="stepper-indicator">
@@ -51,7 +88,7 @@
                 </div>
                 <div class="period-text-group">
                     <span class="period-label">Periode laporan</span>
-                    <span class="period-value">{{ $data['period_range'] }}</span>
+                    <span class="period-value">{{ request('label', $data['period_range']) }}</span>
                 </div>
             </div>
             <div class="export-period-card__right">
@@ -94,7 +131,7 @@
                                 <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
                                 <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
                             </svg>
-                            1 dokumen PDF · 2 halaman
+                            1 dokumen PDF · {{ $data['count_pemasukan'] || $data['count_pengeluaran'] ? 2 : 1 }} halaman
                         </span>
                     </div>
                 </div>
@@ -159,7 +196,7 @@
 
             <div class="export-bottom-actions__right">
                 <span class="export-hint-text">Periksa isi laporan sebelum mengunduh.</span>
-                <a href="{{ route('laporan.export.preview') }}?format=pdf" class="btn-laporan-primary" id="btnNextPreview">
+                <a href="{{ route('laporan.export.preview') }}?format=pdf&{{ $query }}" class="btn-laporan-primary" id="btnNextPreview">
                     <span>Lanjut ke pratinjau</span>
                     <span class="arrow">→</span>
                 </a>
@@ -187,13 +224,13 @@
                 cardPdf.setAttribute('aria-pressed', 'true');
                 cardPng.classList.remove('format-card--active');
                 cardPng.setAttribute('aria-pressed', 'false');
-                btnNext.href = previewBaseUrl + '?format=pdf';
+                btnNext.href = previewBaseUrl + '?format=pdf&{{ $query }}';
             } else {
                 cardPng.classList.add('format-card--active');
                 cardPng.setAttribute('aria-pressed', 'true');
                 cardPdf.classList.remove('format-card--active');
                 cardPdf.setAttribute('aria-pressed', 'false');
-                btnNext.href = previewBaseUrl + '?format=png';
+                btnNext.href = previewBaseUrl + '?format=png&{{ $query }}';
             }
         }
 

@@ -5,6 +5,42 @@
 @section('content')
 @php
     $data = require resource_path('views/pages/laporan/data.php');
+    $start = request('start', '2026-04-01');
+    $end = request('end', '2026-04-30');
+    $label = request('label', $data['period']);
+    $months = ['januari'=>'01','februari'=>'02','maret'=>'03','april'=>'04','mei'=>'05','juni'=>'06','juli'=>'07','agustus'=>'08','september'=>'09','oktober'=>'10','november'=>'11','desember'=>'12'];
+    $parseDate = static function (string $date) use ($months): string {
+        $parts = explode(' ', strtolower($date));
+        return ($parts[2] ?? '2026') . '-' . ($months[$parts[1] ?? 'april'] ?? '04') . '-' . str_pad($parts[0] ?? '1', 2, '0', STR_PAD_LEFT);
+    };
+    foreach (['pemasukan', 'pengeluaran'] as $type) {
+        $data[$type] = array_values(array_filter($data[$type], static fn (array $transaction): bool => $parseDate($transaction['date']) >= $start && $parseDate($transaction['date']) <= $end));
+    }
+    $data['count_pemasukan'] = count($data['pemasukan']);
+    $data['count_pengeluaran'] = count($data['pengeluaran']);
+    $data['total_pemasukan'] = number_format(array_sum(array_map(static fn (array $row): int => (int) str_replace('.', '', $row['amount']), $data['pemasukan'])), 0, ',', '.');
+    $data['total_pengeluaran'] = number_format(array_sum(array_map(static fn (array $row): int => (int) str_replace('.', '', $row['amount']), $data['pengeluaran'])), 0, ',', '.');
+    $incoming = array_fill_keys(array_column($data['resume'], 'category'), 0);
+    $outgoing = $incoming;
+    foreach ($data['pemasukan'] as $row) {
+        $incoming[$row['category']] = ($incoming[$row['category']] ?? 0) + (int) str_replace('.', '', $row['amount']);
+    }
+    foreach ($data['pengeluaran'] as $row) {
+        $outgoing[$row['category']] = ($outgoing[$row['category']] ?? 0) + (int) str_replace('.', '', $row['amount']);
+    }
+    foreach ($data['resume'] as &$row) {
+        $row['pemasukan'] = number_format($incoming[$row['category']] ?? 0, 0, ',', '.');
+        $row['pengeluaran'] = number_format($outgoing[$row['category']] ?? 0, 0, ',', '.');
+        $opening = (int) str_replace('.', '', $row['saldo_awal']);
+        $row['saldo_akhir'] = number_format($opening + ($incoming[$row['category']] ?? 0) - ($outgoing[$row['category']] ?? 0), 0, ',', '.');
+    }
+    unset($row);
+    $data['resume_total']['pemasukan'] = $data['total_pemasukan'];
+    $data['resume_total']['pengeluaran'] = $data['total_pengeluaran'];
+    $totalOpening = (int) str_replace('.', '', $data['resume_total']['saldo_awal']);
+    $data['resume_total']['saldo_akhir'] = number_format($totalOpening + (int) str_replace('.', '', $data['total_pemasukan']) - (int) str_replace('.', '', $data['total_pengeluaran']), 0, ',', '.');
+    $pageCount = 2;
+    $periodLabel = $label;
     $pemasukan = $data['pemasukan'];
     $pengeluaranPage1 = array_slice($data['pengeluaran'], 0, 21);
     $pengeluaranPage2 = array_slice($data['pengeluaran'], 21);
@@ -40,7 +76,7 @@
         <section class="laporan-stepper-header">
             <div class="laporan-stepper-header__left">
                 <h2 class="laporan-step-title">Pratinjau sebelum unduh</h2>
-                <p class="laporan-step-desc">Periksa kedua lembar laporan {{ $data['period'] }} sebelum mengunduh.</p>
+                <p class="laporan-step-desc">Periksa laporan {{ $label }} sebelum mengunduh.</p>
             </div>
 
             <div class="stepper-indicator">
@@ -85,10 +121,10 @@
                 </div>
 
                 <div class="format-summary-meta">
-                    <div class="meta-title" id="metaTitle">1 dokumen PDF · 2 halaman</div>
+                    <div class="meta-title" id="metaTitle">1 dokumen PDF · {{ $pageCount }} halaman</div>
                     <div class="meta-sub" id="metaSubtitle">Seluruh halaman dalam satu berkas PDF.</div>
                     <div class="meta-tags">
-                        <span class="badge-tag">A4 lanskap · 297 × 210 mm · 01–30 April 2026</span>
+                        <span class="badge-tag">A4 lanskap · 297 × 210 mm · {{ $label }}</span>
                     </div>
                 </div>
             </div>
@@ -101,7 +137,7 @@
                         <polyline points="7 10 12 15 17 10"></polyline>
                         <line x1="12" y1="15" x2="12" y2="3"></line>
                     </svg>
-                    <span id="btnDownloadTopText">Unduh PDF - 2 halaman</span>
+                    <span id="btnDownloadTopText">Unduh PDF - {{ $pageCount }} halaman</span>
                 </button>
             </div>
         </section>
@@ -135,7 +171,7 @@
                             <polyline points="14 2 14 8 20 8"></polyline>
                         </svg>
                     </span>
-                    <span class="file-status" id="workspaceStatus">2 halaman · Semua halaman ditampilkan</span>
+                    <span class="file-status" id="workspaceStatus">{{ $pageCount }} halaman · Semua halaman ditampilkan</span>
                     <span class="file-name" id="workspaceFilename">Laporan_Al-Hidayah_April_2026.pdf</span>
                 </div>
 
@@ -165,10 +201,10 @@
                     <div class="sheet-header">
                         <div class="sheet-header__left">
                             <span class="sheet-brand">Masjid Al-Hidayah</span>
-                            <h3 class="sheet-title">Laporan Keuangan April 2026</h3>
+                            <h3 class="sheet-title">Laporan Keuangan {{ $periodLabel }}</h3>
                         </div>
                         <div class="sheet-header__right">
-                            <span class="sheet-period">Periode 1–30 April 2026</span>
+                            <span class="sheet-period">Periode {{ $periodLabel }}</span>
                             <span class="sheet-subinfo">A4 lanskap · Halaman 1 dari 2</span>
                         </div>
                     </div>
@@ -180,7 +216,7 @@
                             <div class="sheet-col-head sheet-col-head--green">
                                 <div class="head-left">
                                     <span class="head-title">Pemasukan</span>
-                                    <span class="head-sub">17 transaksi · total periode</span>
+                                    <span class="head-sub">{{ $data['count_pemasukan'] }} transaksi · total periode</span>
                                 </div>
                                 <div class="head-right">
                                     Rp {{ $data['total_pemasukan'] }}
@@ -217,7 +253,7 @@
                             <div class="sheet-col-head sheet-col-head--red">
                                 <div class="head-left">
                                     <span class="head-title">Pengeluaran</span>
-                                    <span class="head-sub">33 transaksi · total periode</span>
+                                    <span class="head-sub">{{ $data['count_pengeluaran'] }} transaksi · total periode</span>
                                 </div>
                                 <div class="head-right">
                                     Rp {{ $data['total_pengeluaran'] }}
@@ -272,10 +308,10 @@
                     <div class="sheet-header">
                         <div class="sheet-header__left">
                             <span class="sheet-brand">Masjid Al-Hidayah</span>
-                            <h3 class="sheet-title">Laporan Keuangan April 2026</h3>
+                            <h3 class="sheet-title">Laporan Keuangan {{ $periodLabel }}</h3>
                         </div>
                         <div class="sheet-header__right">
-                            <span class="sheet-period">Periode 1–30 April 2026</span>
+                            <span class="sheet-period">Periode {{ $periodLabel }}</span>
                             <span class="sheet-subinfo">A4 lanskap · Halaman 2 dari 2</span>
                         </div>
                     </div>
@@ -287,7 +323,7 @@
                             <div class="sheet-col-head sheet-col-head--green">
                                 <div class="head-left">
                                     <span class="head-title">Pemasukan</span>
-                                    <span class="head-sub">17 transaksi · total periode</span>
+                                    <span class="head-sub">{{ $data['count_pemasukan'] }} transaksi · total periode</span>
                                 </div>
                                 <div class="head-right">
                                     Rp {{ $data['total_pemasukan'] }}
@@ -301,7 +337,7 @@
 
                             <div class="sheet-empty-placeholder">
                                 <p class="empty-title">Tidak ada lanjutan pemasukan</p>
-                                <p class="empty-sub">Seluruh 17 transaksi pemasukan tercantum pada halaman 1.</p>
+                                <p class="empty-sub">Seluruh {{ $data['count_pemasukan'] }} transaksi pemasukan tercantum pada halaman 1.</p>
                             </div>
                         </div>
 
@@ -310,7 +346,7 @@
                             <div class="sheet-col-head sheet-col-head--red">
                                 <div class="head-left">
                                     <span class="head-title">Pengeluaran</span>
-                                    <span class="head-sub">33 transaksi · total periode</span>
+                                    <span class="head-sub">{{ $data['count_pengeluaran'] }} transaksi · total periode</span>
                                 </div>
                                 <div class="head-right">
                                     Rp {{ $data['total_pengeluaran'] }}
@@ -346,8 +382,8 @@
                     {{-- Resume Saldo Inside Sheet 2 --}}
                     <div class="sheet-resume-box">
                         <div class="sheet-resume-head">
-                            <h4 class="sheet-resume-title">Resume Saldo April 2026</h4>
-                            <span class="sheet-resume-subtitle">Rekapitulasi per kategori dana · total periode 01–30 April 2026</span>
+                            <h4 class="sheet-resume-title">Resume Saldo {{ $periodLabel }}</h4>
+                            <span class="sheet-resume-subtitle">Rekapitulasi per kategori dana · total periode {{ $periodLabel }}</span>
                         </div>
 
                         @include('pages.laporan.partials.resume-table', [
@@ -375,7 +411,7 @@
                 Kembali ke pilihan format
             </a>
 
-            <span class="bottom-file-desc" id="bottomFileDesc">1 berkas PDF berisi 2 halaman</span>
+            <span class="bottom-file-desc" id="bottomFileDesc">1 berkas PDF berisi {{ $pageCount }} halaman</span>
 
             <button type="button" class="btn-laporan-primary" id="btnDownloadBottom">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
@@ -383,7 +419,7 @@
                     <polyline points="7 10 12 15 17 10"></polyline>
                     <line x1="12" y1="15" x2="12" y2="3"></line>
                 </svg>
-                <span id="btnDownloadBottomText">Unduh PDF - 2 halaman</span>
+                <span id="btnDownloadBottomText">Unduh PDF - {{ $pageCount }} halaman</span>
             </button>
         </div>
 
@@ -395,7 +431,7 @@
     <div class="toast-icon">✓</div>
     <div class="toast-body">
         <strong id="toastTitle">Mengunduh Dokumen...</strong>
-        <p id="toastMessage">Laporan Keuangan April 2026 berhasil disiapkan.</p>
+        <p id="toastMessage">Laporan Keuangan {{ $periodLabel }} berhasil disiapkan.</p>
     </div>
 </div>
 @endsection
@@ -444,14 +480,14 @@
                 btnTogglePdf.classList.add('is-active');
                 btnTogglePng.classList.remove('is-active');
 
-                metaTitle.textContent = '1 dokumen PDF · 2 halaman';
+                metaTitle.textContent = '1 dokumen PDF · {{ $pageCount }} halaman';
                 metaSubtitle.textContent = 'Seluruh halaman dalam satu berkas PDF.';
-                btnDownloadTopText.textContent = 'Unduh PDF - 2 halaman';
-                btnDownloadBottomText.textContent = 'Unduh PDF - 2 halaman';
-                bottomFileDesc.textContent = '1 berkas PDF berisi 2 halaman';
+                btnDownloadTopText.textContent = 'Unduh PDF - {{ $pageCount }} halaman';
+                btnDownloadBottomText.textContent = 'Unduh PDF - {{ $pageCount }} halaman';
+                bottomFileDesc.textContent = '1 berkas PDF berisi {{ $pageCount }} halaman';
 
-                workspaceStatus.textContent = '2 halaman · Semua halaman ditampilkan';
-                workspaceFilename.textContent = 'Laporan_Al-Hidayah_April_2026.pdf';
+                workspaceStatus.textContent = '{{ $pageCount }} halaman · Semua halaman ditampilkan';
+                workspaceFilename.textContent = 'Laporan_Al-Hidayah_{{ str_replace(" ", "_", $periodLabel) }}.pdf';
                 sheet1TopTitle.textContent = 'Halaman 1 dari 2';
                 sheet2TopTitle.textContent = 'Halaman 2 dari 2';
             }
@@ -467,7 +503,7 @@
         function triggerDownload() {
             if (currentFormat === 'pdf') {
                 toastTitle.textContent = 'Menyiapkan Unduhan PDF...';
-                toastMessage.textContent = 'Laporan_Al-Hidayah_April_2026.pdf (2 halaman A4 Lanskap)';
+                toastMessage.textContent = 'Laporan_Al-Hidayah_{{ str_replace(" ", "_", $periodLabel) }}.pdf ({{ $pageCount }} halaman A4 Lanskap)';
             } else {
                 toastTitle.textContent = 'Menyiapkan Unduhan PNG...';
                 toastMessage.textContent = 'Laporan_Al-Hidayah_April_2026_01.png & _02.png';

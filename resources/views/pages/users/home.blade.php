@@ -6,7 +6,7 @@
 
 {{-- ==================== 1. HERO (full-bleed, sudut bawah membulat) ==================== --}}
 <section class="bd-hero">
-    <img src="{{ asset('images/Background Pict.png') }}" alt="Masjid Al-Hidayah Sorolaten" class="bd-hero__img">
+    <img src="/images/Background Pict.png" alt="Masjid Al-Hidayah Sorolaten" class="bd-hero__img">
     <div class="bd-hero__shade"></div>
     <div class="bd-hero__content">
         <h1 class="bd-hero__title">MASJID<br>AL–HIDAYAH</h1>
@@ -126,7 +126,7 @@
         <p class="bd-transparansi__desc">
             Lihat ringkasan pemasukan dan pengeluaran dana Masjid Al Hidayah secara realtime melalui kode akses yang diberikan pengurus masjid.
         </p>
-        <a href="{{ route('laporan.index') }}" class="bd-btn bd-btn--white-sm">Lihat Laporan Keuangan</a>
+        <a href="{{ route('laporan.index') }}" class="bd-btn bd-btn--white-sm laporan-access-trigger">Lihat Laporan Keuangan</a>
     </div>
 </section>
 

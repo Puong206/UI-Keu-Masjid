@@ -1,4 +1,4 @@
-@props([
+﻿@props([
     'resume' => [],
     'total' => [],
     'isSheet' => false

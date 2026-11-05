@@ -1,4 +1,4 @@
-@extends('layouts.app')
+﻿@extends('layouts.app')
 
 @section('title', 'Laporan Keuangan 2026 — Masjid Al-Hidayah Sorolaten')
 
